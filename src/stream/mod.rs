@@ -442,7 +442,7 @@ pub trait Stream: Offset<<Self as Stream>::Checkpoint> + crate::lib::std::fmt::D
     /// Finds the offset of the next matching token
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool;
+        P: for<'t> Fn(&'t Self::Token) -> bool;
     /// Get the offset for the number of `tokens` into the stream
     ///
     /// This means "0 tokens" will return `0` offset
@@ -535,9 +535,9 @@ where
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
-        self.iter().position(|b| predicate(b.clone()))
+        self.iter().position(|b| predicate(b))
     }
     #[inline(always)]
     fn offset_at(&self, tokens: usize) -> Result<usize, Needed> {
@@ -597,10 +597,10 @@ impl<'i> Stream for &'i str {
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
         for (o, c) in self.iter_offsets() {
-            if predicate(c) {
+            if predicate(&c) {
                 return Some(o);
             }
         }
@@ -675,9 +675,9 @@ impl<'i> Stream for &'i Bytes {
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
-        self.iter().position(|b| predicate(*b))
+        self.iter().position(|b| predicate(b))
     }
     #[inline(always)]
     fn offset_at(&self, tokens: usize) -> Result<usize, Needed> {
@@ -740,9 +740,9 @@ impl<'i> Stream for &'i BStr {
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
-        self.iter().position(|b| predicate(*b))
+        self.iter().position(|b| predicate(b))
     }
     #[inline(always)]
     fn offset_at(&self, tokens: usize) -> Result<usize, Needed> {
@@ -810,10 +810,10 @@ where
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
         self.iter_offsets()
-            .find_map(|(o, b)| predicate(b).then_some(o))
+            .find_map(|(o, b)| predicate(&b).then_some(o))
     }
     #[inline(always)]
     fn offset_at(&self, tokens: usize) -> Result<usize, Needed> {
@@ -922,7 +922,7 @@ impl<I: Stream> Stream for Located<I> {
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
         self.input.offset_for(predicate)
     }
@@ -975,7 +975,7 @@ impl<I: Stream, S: Clone + crate::lib::std::fmt::Debug> Stream for Stateful<I, S
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
         self.input.offset_for(predicate)
     }
@@ -1028,7 +1028,7 @@ impl<I: Stream> Stream for Partial<I> {
     #[inline(always)]
     fn offset_for<P>(&self, predicate: P) -> Option<usize>
     where
-        P: Fn(Self::Token) -> bool,
+        P: for<'t> Fn(&'t Self::Token) -> bool,
     {
         self.input.offset_for(predicate)
     }
@@ -2520,9 +2520,9 @@ impl<C: AsChar> ContainsToken<C> for char {
     }
 }
 
-impl<C: AsChar, F: Fn(C) -> bool> ContainsToken<C> for F {
+impl<'c, C: AsChar, F: Fn(&'c C) -> bool> ContainsToken<&'c C> for F {
     #[inline(always)]
-    fn contains_token(&self, token: C) -> bool {
+    fn contains_token(&self, token: &'c C) -> bool {
         self(token)
     }
 }
